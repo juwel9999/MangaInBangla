@@ -1,7 +1,7 @@
 let library = [];
 let currentChapter = 0;
 let currentPage = 1;
-let direction = "rtl";
+let direction = "rtl"; // Default to RTL
 let touchStartX = 0;
 let touchStartY = 0;
 
@@ -13,6 +13,7 @@ const pageImg = document.getElementById("pageImg");
 const pageInfo = document.getElementById("pageInfo");
 const reader = document.getElementById("reader");
 
+// 1. Load the library data
 async function initReader() {
   try {
     const res = await fetch("library.json");
@@ -24,6 +25,7 @@ async function initReader() {
       return;
     }
 
+    // Populate dropdown
     library.forEach((ch, index) => {
       const opt = document.createElement("option");
       opt.value = index;
@@ -34,9 +36,11 @@ async function initReader() {
     renderPage();
   } catch (err) {
     pageInfo.textContent = "Error loading library.json. Check the file format.";
+    console.error(err);
   }
 }
 
+// 2. Generate image source path based on settings
 function getPageSrc(chapter, pageNumber) {
   const ext = chapter.ext || "jpg";
   const pad = chapter.pad || 2;
@@ -44,13 +48,16 @@ function getPageSrc(chapter, pageNumber) {
   return `${chapter.path}${formattedNum}.${ext}`;
 }
 
+// 3. Display current page
 function renderPage() {
   const ch = library[currentChapter];
+  if (!ch) return;
   pageImg.src = getPageSrc(ch, currentPage);
   pageImg.alt = `${ch.title} - Page ${currentPage}`;
   pageInfo.textContent = `Page ${currentPage} of ${ch.pages} (${direction.toUpperCase()})`;
 }
 
+// Event Handlers
 function changeChapter() {
   currentChapter = Number(chapterSelect.value);
   currentPage = 1;
@@ -78,30 +85,37 @@ function prevPage() {
   }
 }
 
+// Handle Tap Zones
 function handleTapZone(clientX) {
   const rect = pageImg.getBoundingClientRect();
   if (rect.width === 0) return;
 
+  // Check if tap was on left or right half
   const tappedLeftHalf = clientX < rect.left + rect.width / 2;
 
   if (direction === "rtl") {
+    // RTL: Tap Left = Next, Tap Right = Prev
     if (tappedLeftHalf) nextPage();
     else prevPage();
   } else {
+    // LTR: Tap Left = Prev, Tap Right = Next
     if (tappedLeftHalf) prevPage();
     else nextPage();
   }
 }
 
+// Error handling for broken images
 pageImg.addEventListener("error", () => {
   pageInfo.textContent = `Page ${currentPage} failed to load (${pageImg.src})`;
 });
 
+// UI Listeners
 chapterSelect.addEventListener("change", changeChapter);
 dirBtn.addEventListener("click", toggleDirection);
 prevBtn.addEventListener("click", prevPage);
 nextBtn.addEventListener("click", nextPage);
 
+// Touch Listeners for Swipe
 reader.addEventListener("touchstart", (e) => {
   touchStartX = e.changedTouches[0].screenX;
   touchStartY = e.changedTouches[0].screenY;
@@ -112,11 +126,13 @@ reader.addEventListener("touchend", (e) => {
   const deltaX = touch.screenX - touchStartX;
   const deltaY = touch.screenY - touchStartY;
 
+  // A. It's a TAP (very little movement)
   if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
     handleTapZone(touch.clientX);
     return;
   }
 
+  // B. It's a SWIPE (must be horizontal and > 50px)
   if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) {
     return;
   }
@@ -124,18 +140,22 @@ reader.addEventListener("touchend", (e) => {
   const swipedRight = deltaX > 0;
 
   if (direction === "rtl") {
-    if (swipedRight) nextPage();
-    else prevPage();
-  } else {
+    // RTL: Swipe Right = Prev, Swipe Left = Next
     if (swipedRight) prevPage();
     else nextPage();
+  } else {
+    // LTR: Swipe Right = Next, Swipe Left = Prev
+    if (swipedRight) nextPage();
+    else prevPage();
   }
 }, { passive: true });
 
+// Mouse click listener for desktop testing
 pageImg.addEventListener("click", (e) => {
+  // Prevent double-firing on mobile
   if (e.detail === 0) return;
   handleTapZone(e.clientX);
 });
 
+// Start
 initReader();
-    
